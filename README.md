@@ -2,6 +2,14 @@
 
 Web UI for testing Ansible/Jinja2 templates. Paste a template and variables, get the rendered output.
 
+**Features:**
+
+- Monaco editor panes with syntax highlighting
+- Use your own custom Ansible plugins (filter, lookup, test)
+- Install Ansible plugins from collections on Ansible Galaxy
+
+![Screenshot](.github/web.png)
+
 > [!WARNING]
 > 🤖 **Vibe coded.**
 > 
@@ -29,7 +37,7 @@ docker run -d \
 ```
 
 > [!IMPORTANT]
-> The container needs access to the Docker socket because each render request spins up a short-lived container with Ansible installed to evaluate the template.
+> The container needs access to the Docker socket because each render request spins up a temporary container with Ansible installed to evaluate the template.
 
 ## Configuration
 
