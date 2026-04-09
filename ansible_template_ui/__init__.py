@@ -1,113 +1,97 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# Copyright 2017-2018 Matt Martz
-# All Rights Reserved.
-#
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
+__version__ = "1.0.0"
 
-__version__ = '1.0.0'
+import logging as stdlib_logging
+import threading
+from contextlib import asynccontextmanager
+from pathlib import Path
 
-import base64
-import json
-import os
+import structlog
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
-import docker
-
-from . import text
-
-from flask_lambda import FlaskLambda
-from flask import request, jsonify
+from ansible_template_ui.dependencies import get_docker_service
+from ansible_template_ui.exceptions import (
+    DockerImageError,
+    GalaxyWarmupInProgressError,
+    RenderExecutionError,
+    RenderTimeoutError,
+)
+from ansible_template_ui.logging import setup_logging
+from ansible_template_ui.models import ErrorResponse
+from ansible_template_ui.routes import router
 
 
-kwargs = {}
-app_path = os.path.dirname(__file__)
-kwargs.update({
-    'static_url_path': '',
-    'static_folder': os.path.join(
-        os.path.abspath(app_path),
-        'client'
-    )
-})
-
-app = FlaskLambda(__name__, **kwargs)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    setup_logging()
+    service = get_docker_service()
+    if service.galaxy_collections:
+        threading.Thread(target=service.warmup_galaxy_cache, daemon=True).start()
+    yield
 
 
-@app.route('/')
-def index():
-    return app.send_static_file('index.html')
+app = FastAPI(lifespan=lifespan)
+logger = structlog.get_logger(__name__)
+
+app.include_router(router)
 
 
-@app.route('/render', methods=['POST'])
-def render_template():
-    data = request.get_json()
-
-    client = docker.from_env()
-
-    repository, tag = docker.utils.parse_repository_tag(
-        os.getenv('DOCKER_IMAGE', 'sivel/ansible-template-ui')
+@app.exception_handler(GalaxyWarmupInProgressError)
+async def galaxy_warmup_handler(request: Request, exc: GalaxyWarmupInProgressError):
+    return JSONResponse(
+        content=ErrorResponse(error=str(exc)).model_dump(),
+        status_code=503,
     )
 
-    if not tag:
-        tag = data.get('tag', 'latest')
 
-    image = '%s:%s' % (repository, tag)
+@app.exception_handler(RenderTimeoutError)
+async def render_timeout_handler(request: Request, exc: RenderTimeoutError):
+    return JSONResponse(
+        content=ErrorResponse(error=str(exc)).model_dump(),
+        status_code=408,
+    )
 
-    try:
-        client.images.pull(repository, tag=tag)
 
-        container = client.containers.create(
-            image,
-            environment={
-                'TEMPLATE': text.native(
-                    base64.b64encode(
-                        text.b(data['template'])
-                    )
-                ),
-                'VARIABLES': text.native(
-                    base64.b64encode(
-                        text.b(data['variables']) or b'{}'
-                    )
-                ),
-            },
-            mem_limit='96m',
-        )
-        container.start()
-    except Exception as e:
-        app.logger.exception('Failed to create and start container')
-        return jsonify(**{'error': str(e)}), 400
-    else:
-        exit_status = container.wait()
-        stdout = container.logs(stdout=True, stderr=False)
-        stderr = container.logs(stdout=False, stderr=True)
-        error = None
-        try:
-            response = json.loads(stdout)
-        except ValueError:
-            app.logger.exception('Could not parse JSON')
-            error = stderr or 'Unknown Error'
-        else:
-            play = response['plays'][0]
-            if exit_status != 0:
-                error = play['tasks'][-1]['hosts']['localhost']['msg']
-        if error:
-            return jsonify(**{'error': text.native(error)}), 400
-    finally:
-        try:
-            container.remove(force=True)
-        except NameError:
-            pass
+@app.exception_handler(RenderExecutionError)
+async def render_execution_handler(request: Request, exc: RenderExecutionError):
+    return JSONResponse(
+        content=ErrorResponse(error=str(exc)).model_dump(),
+        status_code=500,
+    )
 
-    b64_content = play['tasks'][1]['hosts']['localhost']['content']
-    content = text.native(base64.b64decode(b64_content))
 
-    return jsonify(**{'content': content})
+@app.exception_handler(DockerImageError)
+async def docker_image_handler(request: Request, exc: DockerImageError):
+    return JSONResponse(
+        content=ErrorResponse(error=str(exc)).model_dump(),
+        status_code=400,
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_handler(request: Request, exc: RequestValidationError):
+    logger.warning(
+        "request_validation_failed",
+        path=request.url.path,
+        error_count=len(exc.errors()),
+        errors=[
+            {"loc": e["loc"], "msg": e["msg"], "type": e["type"]} for e in exc.errors()
+        ],
+    )
+    messages = "; ".join(e["msg"] for e in exc.errors())
+    return JSONResponse(
+        content=ErrorResponse(error=messages).model_dump(),
+        status_code=422,
+    )
+
+
+_client_dir = Path(__file__).resolve().parent / "client"
+if _client_dir.is_dir():
+    app.mount("/", StaticFiles(directory=_client_dir, html=True), name="static")
+else:
+    stdlib_logging.getLogger(__name__).error(
+        "client/ directory not found at %s — static files will not be served",
+        _client_dir,
+    )

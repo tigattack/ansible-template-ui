@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ansible Template Tester</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <h1>Ansible Template Tester</h1>
+      </header>
+
+      <section class="toolbar">
+        <div class="toolbar-group">
+          <button id="render-button" type="button">Render</button>
+        </div>
+        <div class="toolbar-group">
+          <label>
+            <input id="raw-toggle" type="checkbox" />
+            Raw
+          </label>
+        </div>
+      </section>
+
+      <section class="editors">
+        <div class="editor-container">
+          <div class="editor-label">Variables</div>
+          <div id="variables-editor" class="editor-pane"></div>
+        </div>
+        <div class="editor-container">
+          <div class="editor-label">Template</div>
+          <div id="template-editor" class="editor-pane"></div>
+        </div>
+      </section>
+
+      <section class="output-section">
+        <div class="editor-label">Rendered Output</div>
+        <div class="output-container">
+          <pre id="render-output" class="output-pane"></pre>
+          <div id="error-display" class="error-pane"></div>
+          <div id="warmup-display" class="warmup-pane"></div>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

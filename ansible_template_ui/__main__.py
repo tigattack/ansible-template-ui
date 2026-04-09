@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # Copyright 2017-2018 Matt Martz
 # All Rights Reserved.
 #
@@ -15,7 +14,16 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from . import app
+import uvicorn
 
-if __name__ == '__main__':
-    app.run(debug=True)
+from ansible_template_ui.config import get_settings
+
+if __name__ == "__main__":
+    settings = get_settings()
+    uvicorn.run(
+        "ansible_template_ui:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=settings.DEBUG,
+        log_config=None,
+    )

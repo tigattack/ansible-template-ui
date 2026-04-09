@@ -32,8 +32,6 @@ wheels/
 *.spec
 
 # Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
 
 # Unit test / coverage reports
 htmlcov/
@@ -45,6 +43,7 @@ nosetests.xml
 coverage.xml
 *.cover
 .hypothesis/
+.pytest_cache/
 
 # Translations
 *.mo
@@ -69,9 +68,6 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
-
-# pyenv
-.python-version
 
 # celery beat schedule file
 celerybeat-schedule
@@ -101,4 +97,17 @@ ENV/
 .mypy_cache/
 
 # local
-*.pex
+.ansible
+.DS_Store
+
+# frontend build/install outputs
+node_modules/
+frontend/node_modules/
+ansible_template_ui/client/
+my-plugins/
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/

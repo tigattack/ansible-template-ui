@@ -1,0 +1,31 @@
+pre-commit:
+  skip:
+    - merge
+    - rebase
+  commands:
+    ruff-check:
+      glob: "**/*.py"
+      run: uv run ruff check --fix {staged_files}
+      stage_fixed: true
+
+    ruff-format:
+      glob: "**/*.py"
+      run: uv run ruff format {staged_files}
+      stage_fixed: true
+
+    tsc:
+      root: frontend
+      run: bunx tsc --noEmit
+
+    pyright:
+      glob: "**/*.py"
+      run: uv run pyright
+
+    eslint:
+      root: frontend
+      run: bun run lint
+
+    prettier:
+      root: frontend
+      run: bunx prettier --write src/
+      stage_fixed: true

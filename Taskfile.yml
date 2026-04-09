@@ -1,0 +1,125 @@
+version: '3'
+
+tasks:
+  test:
+    desc: Run the Python test suite
+    cmd: uv run pytest tests/ -v
+
+  lint:
+    desc: Run backend and frontend lint checks
+    cmds:
+      - uv run ruff check .
+      - uv run ruff format --check .
+      - uv run pyright
+      - task: frontend-lint
+
+  lint-fix:
+    desc: Fix backend and frontend lint issues
+    cmds:
+      - uv run ruff check --fix .
+      - uv run ruff format .
+      - task: frontend-lint-fix
+
+  frontend-build:
+    desc: Build the frontend assets
+    dir: frontend
+    cmd: bun run build
+
+  e2e:
+    desc: Run Playwright E2E tests
+    dir: frontend
+    cmd: bunx playwright test
+
+  frontend-dev:
+    desc: Start the frontend dev server
+    dir: frontend
+    cmd: bun run dev
+
+  frontend-lint:
+    desc: Lint the frontend code
+    dir: frontend
+    cmd: bun run lint
+
+  frontend-lint-fix:
+    desc: Fix frontend lint issues
+    dir: frontend
+    cmd: bun run lint -- --fix
+
+  docker-build-web:
+    desc: Build the web application Docker image
+    cmd: docker build -f docker/web/Dockerfile --target prod -t ghcr.io/tigattack/ansible-template-ui:dev .
+
+  docker-build-renderer:
+    desc: Build the renderer Docker image
+    cmd: docker build -t ghcr.io/tigattack/ansible-template-renderer:dev docker/renderer/
+
+  dev:backend:
+    desc: Start the backend dev server
+    cmd: uv run python -m ansible_template_ui
+
+  dev:
+    desc: Start backend and frontend dev servers concurrently
+    deps: [dev:backend, frontend-dev]
+
+  format:
+    desc: Format backend and frontend code
+    cmds:
+      - uv run ruff format .
+      - task: frontend-format
+
+  frontend-format:
+    desc: Format the frontend code
+    dir: frontend
+    cmd: bun run format -- --write
+
+  build:frontend:
+    desc: Alias for building the frontend assets
+    deps: [frontend-build]
+
+  build:docker:
+    desc: Build both Docker images
+    cmds:
+      - task: docker-build-web
+      - task: docker-build-renderer
+
+  up:
+    desc: Start the application with Docker Compose
+    cmd: docker compose up -d
+
+  dev:up:
+    desc: Start the dev environment (builds renderer + web images)
+    cmd: docker compose -f compose.dev.yml up -d --build
+
+  dev:down:
+    desc: Stop the dev environment containers
+    cmd: docker compose -f compose.dev.yml down {{.CLI_ARGS}}
+
+  dev:logs:
+    desc: Tail logs from the dev environment containers
+    cmd: docker compose -f compose.dev.yml logs -f {{.CLI_ARGS}}
+
+  hooks:install:
+    desc: Install git hooks via lefthook (run after cloning)
+    cmd: uv run lefthook install
+
+  clean:
+    desc: Remove build artifacts, caches, and project Docker images
+    deps: [clean:artifacts, clean:docker]
+
+  clean:artifacts:
+    desc: Remove build outputs, Python/frontend caches, and test reports
+    cmds:
+      - rm -rf ansible_template_ui/client/
+      - find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+      - rm -rf .pytest_cache .mypy_cache .ruff_cache
+      - rm -rf htmlcov .coverage .coverage.* coverage.xml
+      - rm -rf test-results playwright-report blob-report
+
+  clean:docker:
+    desc: Remove project Docker images and dev compose resources
+    cmds:
+      - docker compose -f compose.dev.yml down --volumes --remove-orphans 2>/dev/null || true
+      - docker image rm $(docker image ls --quiet --filter reference='ghcr.io/tigattack/ansible-template-ui') 2>/dev/null || true
+      - docker image rm $(docker image ls --quiet --filter reference='ghcr.io/tigattack/ansible-template-renderer') 2>/dev/null || true
+      - docker image rm $(docker image ls --quiet --filter reference='ansible-template-renderer') 2>/dev/null || true
+      - docker image rm $(docker image ls --quiet --filter reference='ansible-template-ui-*') 2>/dev/null || true

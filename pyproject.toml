@@ -1,0 +1,99 @@
+[build-system]
+requires = ["uv_build~=0.11.3"]
+build-backend = "uv_build"
+
+[project]
+name = "ansible-template-ui"
+version = "1.0.0"
+description = "Web UI for testing ansible templates"
+readme = "README.md"
+license = {text = "Apache License, Version 2.0"}
+authors = [
+    {name = "Matt Martz", email = "matt@sivel.net"},
+    {name = "tigattack"}
+]
+keywords = ["ansible", "jinja", "jinja2", "template", "ansible-template-ui"]
+requires-python = ">=3.14"
+dependencies = [
+    "docker~=7.1.0",
+    "fastapi~=0.135.3",
+    "pydantic-settings~=2.13.1",
+    "PyYAML~=6.0.3",
+    "requests~=2.33.1",
+    "structlog~=25.5.0",
+    "uvicorn[standard]~=0.44.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/tigattack/ansible-template-ui"
+
+[dependency-groups]
+dev = [
+    "ansible-core~=2.20.4",
+    "ansible-lint~=26.4",
+    "httpx~=0.28.1",
+    "lefthook~=2.1.4",
+    "pyright~=1.1.408",
+    "pytest~=9.0",
+    "ruff~=0.15.8",
+    "types-docker~=7.1.0",
+]
+
+[tool.uv]
+required-version = "~=0.11.3"
+
+[tool.uv.build-backend]
+module-root = ""
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "COM",  # flake8-commas
+    "PTH",  # flake8-use-pathlib
+    "RUF",  # ruff-specific rules
+    "SIM",  # flake8-simplify
+    "TC",   # flake8-type-checking
+    "PLC",  # pylint conventions
+    "PLR",  # pylint refactoring
+    "PT",   # flake8-pytest-style
+    "S",    # flake8-bandit
+    "TRY",  # tryceratops
+    "EXE",  # flake8-executable
+]
+ignore = [
+    "D",        # pydocstyle — docstrings not required in this codebase
+    "ANN",      # flake8-annotations — type annotations not enforced
+    "ARG001",   # unused function argument — FastAPI handlers require signature params
+    "ARG002",   # unused method argument — same reason
+    "ARG005",   # unused lambda argument — test fixtures
+    "COM812",   # trailing comma — conflicts with ruff formatter
+    "EM101",    # exception string literal — opinionated style, not enforced here
+    "EM102",    # exception f-string literal — same
+    "TRY003",   # long exception messages — opinionated, not enforced here
+    "PLR0913",  # too many function arguments — DockerService.__init__ needs them
+    "BLE001",   # blind exception — acceptable in test helpers
+    "SLF001",   # private member access — intentional in DockerService property
+    "TC001",    # move import to TYPE_CHECKING block — breaks FastAPI Depends at runtime
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "S110", "PLR2004"]  # assert, try/except/pass, and magic numbers are fine in tests
+
+[tool.pyright]
+pythonVersion = "3.14"
+pythonPlatform = "Linux"
+typeCheckingMode = "strict"
+reportMissingImports = true
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+]

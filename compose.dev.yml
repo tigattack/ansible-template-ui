@@ -1,0 +1,44 @@
+services:
+  renderer:
+    build:
+      context: docker/renderer
+    image: ansible-template-renderer:dev
+    command: ["true"]
+
+  web-dev:
+    build:
+      context: .
+      dockerfile: docker/web/Dockerfile
+      target: dev
+    command: uv run --no-sync python -m ansible_template_ui
+    volumes:
+      - .:/app
+      - /app/.venv
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8080:8080"
+    environment:
+      DEBUG: "true"
+      HOST: "0.0.0.0"
+      DOCKER_IMAGE: ansible-template-renderer:dev
+      ANSIBLE_GALAXY_COLLECTIONS: ""
+    depends_on:
+      renderer:
+        condition: service_completed_successfully
+
+  frontend-dev:
+    image: oven/bun:1
+    working_dir: /app/frontend
+    command: sh -c "bun install --frozen-lockfile && exec bun run dev -- --host 0.0.0.0"
+    volumes:
+      - ./frontend:/app/frontend
+      - frontend_node_modules:/app/frontend/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_PROXY_TARGET: "http://web-dev:8080"
+    depends_on:
+      - web-dev
+
+volumes:
+  frontend_node_modules:

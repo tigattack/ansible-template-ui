@@ -1,0 +1,16 @@
+.venv
+.git
+node_modules
+*.egg-info
+__pycache__
+.pytest_cache
+.sisyphus
+frontend/node_modules
+.ruff_cache/
+.vscode/
+tests/
+*.md
+!README.md
+Taskfile.yml
+.pre-commit-config.yaml
+.github/

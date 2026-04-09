@@ -1,2 +1,0 @@
-gunicorn==19.7.1
-gevent==1.2.2
