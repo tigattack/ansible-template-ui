@@ -13,7 +13,7 @@ Web UI for testing Ansible/Jinja2 templates. Paste a template and variables, get
 > [!WARNING]
 > 🤖 **Vibe coded.**
 > 
-> The changed to this fork of [sivel/ansible-template-ui](https://github.com/sivel/ansible-template-ui) were almost exclusively carried out by a LLM.
+> The changes to this fork of [sivel/ansible-template-ui](https://github.com/sivel/ansible-template-ui) were almost exclusively carried out by a LLM.
 > 
 > I wanted a thing, I didn't want to write the thing, so the clanker did it. Make of that what you will.
 
