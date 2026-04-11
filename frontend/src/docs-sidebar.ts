@@ -1,32 +1,6 @@
 import { formatAnsibleMarkup } from './format-ansible-markup';
-
-interface PluginParam {
-  name: string;
-  description: string;
-  type?: string | null;
-  default?: string | null;
-  required?: boolean;
-}
-
-interface PluginEntry {
-  name: string;
-  namespace: string;
-  type: string;
-  short_description: string | null;
-  description: string | null;
-  params: PluginParam[];
-  examples: string | null;
-  source: string;
-}
-
-interface PluginCategory {
-  type: string;
-  plugins: PluginEntry[];
-}
-
-interface PluginsResponse {
-  categories: PluginCategory[];
-}
+import type { PluginEntry, PluginsResponse } from './plugin-data';
+import { getPluginStore, getPluginDescription, getPluginExamples } from './plugin-data';
 
 export interface DocsSidebarRefs {
   sidebar: HTMLElement;
@@ -52,7 +26,6 @@ function getAnsibleDocsUrl(plugin: PluginEntry): string | null {
 export function initDocsSidebar(refs: DocsSidebarRefs): void {
   let pluginsData: PluginsResponse | null = null;
   let searchQuery = '';
-  let fetchStarted = false;
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let detailPlugin: PluginEntry | null = null;
   let savedScrollTop = 0;
@@ -111,6 +84,26 @@ export function initDocsSidebar(refs: DocsSidebarRefs): void {
   function hideStates(): void {
     refs.loadingDisplay.setAttribute('hidden', '');
     refs.errorDisplay.setAttribute('hidden', '');
+  }
+
+  function buildAnchorBar(): void {
+    if (!pluginsData) return;
+
+    refs.anchorBar.textContent = '';
+    for (const category of pluginsData.categories) {
+      const link = document.createElement('a');
+      link.className = 'docs-sidebar__anchor-link';
+      link.href = `#docs-section-${category.type}`;
+      link.textContent = category.type.charAt(0).toUpperCase() + category.type.slice(1);
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const sectionEl = refs.pluginList.querySelector(`#docs-section-${category.type}`);
+        if (sectionEl) {
+          sectionEl.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+      refs.anchorBar.appendChild(link);
+    }
   }
 
   function renderPluginCards(plugins: PluginEntry[], container: HTMLElement): void {
@@ -195,8 +188,7 @@ export function initDocsSidebar(refs: DocsSidebarRefs): void {
 
     detail.appendChild(detailHeader);
 
-    const descText =
-      detailPlugin!.description ?? detailPlugin!.short_description ?? 'No description available.';
+    const descText = getPluginDescription(detailPlugin!) || 'No description available.';
     const descEl = document.createElement('div');
     descEl.className = 'docs-plugin-card__description';
     descEl.innerHTML = formatAnsibleMarkup(descText);
@@ -228,7 +220,8 @@ export function initDocsSidebar(refs: DocsSidebarRefs): void {
       detail.appendChild(paramsWrapper);
     }
 
-    if (detailPlugin!.examples) {
+    const examples = getPluginExamples(detailPlugin!);
+    if (examples) {
       const exWrapper = document.createElement('div');
       exWrapper.className = 'docs-plugin-card__examples';
       const exHeader = document.createElement('h4');
@@ -236,7 +229,7 @@ export function initDocsSidebar(refs: DocsSidebarRefs): void {
       exHeader.textContent = 'Examples';
       exWrapper.appendChild(exHeader);
       const pre = document.createElement('pre');
-      pre.textContent = detailPlugin!.examples.replace(/^\n+/, '');
+      pre.textContent = examples;
       exWrapper.appendChild(pre);
       detail.appendChild(exWrapper);
     }
@@ -341,57 +334,36 @@ export function initDocsSidebar(refs: DocsSidebarRefs): void {
     }
   }
 
-  async function fetchPlugins(): Promise<void> {
-    showLoading();
-    try {
-      const response = await fetch('/plugins');
-      let data: PluginsResponse | { error?: string };
-      try {
-        data = (await response.json()) as PluginsResponse | { error?: string };
-      } catch {
-        throw new Error(`Server error ${response.status}`);
-      }
-      if (response.status === 503) {
-        showLoading('Plugin docs are loading, please wait...');
-        return;
-      }
-      if (!response.ok) {
-        showError(
-          'Failed to load plugin docs.' + ('error' in data && data.error ? ' ' + data.error : '')
-        );
-        return;
-      }
-      pluginsData = data as PluginsResponse;
-      refs.anchorBar.textContent = '';
-      for (const category of pluginsData.categories) {
-        const link = document.createElement('a');
-        link.className = 'docs-sidebar__anchor-link';
-        link.href = `#docs-section-${category.type}`;
-        link.textContent = category.type.charAt(0).toUpperCase() + category.type.slice(1);
-        link.addEventListener('click', (e) => {
-          e.preventDefault();
-          const sectionEl = refs.pluginList.querySelector(`#docs-section-${category.type}`);
-          if (sectionEl) {
-            sectionEl.scrollIntoView({ behavior: 'smooth' });
-          }
-        });
-        refs.anchorBar.appendChild(link);
-      }
-      render();
-    } catch (err) {
-      showError(
-        'Failed to load plugin docs: ' + (err instanceof Error ? err.message : String(err))
-      );
-    }
-  }
-
   function openSidebar(): void {
     refs.sidebar.removeAttribute('hidden');
-    if (!fetchStarted) {
-      fetchStarted = true;
-      void fetchPlugins();
-    } else if (pluginsData) {
+    const pluginStore = getPluginStore();
+
+    if (pluginStore.state === 'ready') {
+      if (!pluginsData) {
+        pluginsData = pluginStore.plugins;
+        buildAnchorBar();
+      }
       render();
+    } else if (pluginStore.state === 'error') {
+      showError('Failed to load plugin docs.' + (pluginStore.error ? ' ' + pluginStore.error : ''));
+    } else {
+      showLoading(
+        pluginStore.state === 'loading' ? 'Plugin docs are loading, please wait...' : undefined
+      );
+      pluginStore.onReady(() => {
+        pluginsData = pluginStore.plugins;
+        buildAnchorBar();
+        render();
+      });
+      if (pluginStore.state === 'idle') {
+        void pluginStore.load().then(() => {
+          if (pluginStore.state === 'error') {
+            showError(
+              'Failed to load plugin docs.' + (pluginStore.error ? ' ' + pluginStore.error : '')
+            );
+          }
+        });
+      }
     }
   }
 

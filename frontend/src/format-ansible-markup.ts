@@ -5,7 +5,7 @@
  * pre-processing and null-safety.
  */
 
-import { parse, toHTML } from 'antsibull-docs';
+import { parse, toHTML, toMD } from 'antsibull-docs';
 
 /**
  * Convert Ansible documentation markup to HTML.
@@ -29,4 +29,22 @@ export function formatAnsibleMarkup(text: string | null | undefined): string {
   const paragraphs = preprocessed.split('\n');
   const parsed = parse(paragraphs);
   return toHTML(parsed, { style: 'plain' });
+}
+
+/**
+ * Convert Ansible documentation markup to Markdown.
+ *
+ * Same null-safety and backtick preprocessing as formatAnsibleMarkup,
+ * but emits Markdown instead of HTML (for use in Monaco tooltips).
+ */
+export function formatAnsibleMarkupMD(text: string | null | undefined): string {
+  if (!text) {
+    return '';
+  }
+
+  const preprocessed = text.replace(/(?<!`)`([^`]+)`(?!`)/g, 'C($1)');
+
+  const paragraphs = preprocessed.split('\n');
+  const parsed = parse(paragraphs);
+  return toMD(parsed);
 }

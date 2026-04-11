@@ -1,5 +1,10 @@
 import * as monaco from 'monaco-editor';
 import { configureMonacoYaml } from 'monaco-yaml';
+import { getPluginStore } from './plugin-data';
+import type { PluginEntry } from './plugin-data';
+import { createJinja2CompletionProvider } from './languages/jinja2-completion';
+import { createJinja2HoverProvider } from './languages/jinja2-hover';
+import { createJinja2SignatureHelpProvider } from './languages/jinja2-signature';
 import { registerJinja2Language } from './languages/jinja2.ts';
 
 import type { IWebWorkerOptions } from 'monaco-editor';
@@ -54,6 +59,28 @@ export function setupMonacoEnvironment(): void {
 
   patchCreateWebWorker();
   registerJinja2Language(monaco);
+
+  // Register Ansible plugin intellisense providers
+  const pluginStore = getPluginStore();
+  const getAllPlugins = (): PluginEntry[] => {
+    const all: PluginEntry[] = [];
+    for (const type of ['filter', 'lookup', 'test'] as const) {
+      all.push(...pluginStore.getPluginsByType(type));
+    }
+    return all;
+  };
+
+  monaco.languages.registerCompletionItemProvider(
+    'jinja2',
+    createJinja2CompletionProvider(getAllPlugins)
+  );
+  monaco.languages.registerHoverProvider('jinja2', createJinja2HoverProvider(getAllPlugins));
+  monaco.languages.registerSignatureHelpProvider(
+    'jinja2',
+    createJinja2SignatureHelpProvider(getAllPlugins)
+  );
+
+  void pluginStore.load();
   configureMonacoYaml(monaco, { enableSchemaRequest: false });
 }
 
@@ -83,6 +110,7 @@ export function createEditors(): Editors {
     lineNumbers: 'on',
     scrollBeyondLastLine: false,
     automaticLayout: true,
+    fixedOverflowWidgets: true,
   });
 
   return { variablesEditor, templateEditor };
