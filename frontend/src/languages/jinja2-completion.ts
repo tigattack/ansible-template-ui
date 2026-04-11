@@ -2,13 +2,13 @@ import type * as monaco from 'monaco-editor';
 import type { PluginEntry } from '../plugin-data';
 import { getPluginDescription, getPluginExamples } from '../plugin-data';
 import { formatAnsibleMarkupMD } from '../format-ansible-markup';
-import { detectContext, isInsideDelimiters } from './jinja2-context';
+import { detectContext, findFilterCallContext, isInsideDelimiters } from './jinja2-context';
 
 export interface CompletionResult {
   label: string;
   detail: string;
   documentation: string;
-  kind: 'filter' | 'lookup' | 'test';
+  kind: 'filter' | 'lookup' | 'test' | 'param';
   insertText: string;
   isSnippet: boolean;
   filterText: string;
@@ -37,12 +37,85 @@ function buildDocumentation(plugin: PluginEntry): string {
   return parts.join('\n');
 }
 
+function getUsedParamNames(fullText: string, lineNumber: number, column: number): Set<string> {
+  const lines = fullText.split('\n');
+  let offset = 0;
+  for (let i = 0; i < lineNumber - 1; i++) offset += (lines[i]?.length ?? 0) + 1;
+  offset += column - 1;
+
+  let depth = 0;
+  let openParenOffset = -1;
+  for (let i = offset - 1; i >= 0; i--) {
+    const ch = fullText[i];
+    if (ch === ')') depth++;
+    else if (ch === '(') {
+      if (depth === 0) {
+        openParenOffset = i;
+        break;
+      }
+      depth--;
+    }
+  }
+  if (openParenOffset < 0) return new Set();
+
+  const inside = fullText.slice(openParenOffset + 1, offset);
+  const used = new Set<string>();
+  for (const m of inside.matchAll(/([a-zA-Z_]\w*)\s*=/g)) {
+    used.add(m[1]);
+  }
+  return used;
+}
+
 export function getCompletionItems(
   fullText: string,
   lineNumber: number,
   column: number,
   plugins: PluginEntry[]
 ): CompletionResult[] {
+  const filterCall = findFilterCallContext(fullText, lineNumber, column);
+  if (filterCall) {
+    const plugin = plugins.find(
+      (p) =>
+        p.type === 'filter' &&
+        (p.name.split('.').pop()?.toLowerCase() === filterCall.filterName.toLowerCase() ||
+          p.name.toLowerCase() === filterCall.filterName.toLowerCase())
+    );
+    if (plugin && plugin.params.length > 0) {
+      const lines = fullText.split('\n');
+      const currentLine = lines[lineNumber - 1] ?? '';
+      const beforeCursor = currentLine.slice(0, column - 1);
+      const paramPrefixMatch = beforeCursor.match(/([a-zA-Z_]\w*)$/);
+      const typedPrefix = paramPrefixMatch ? paramPrefixMatch[1].toLowerCase() : '';
+      const startColumn = column - typedPrefix.length;
+
+      const usedParams = getUsedParamNames(fullText, lineNumber, column);
+
+      return plugin.params
+        .filter((p) => !usedParams.has(p.name))
+        .filter((p) => typedPrefix === '' || p.name.toLowerCase().startsWith(typedPrefix))
+        .map((p) => {
+          let detail = plugin.name;
+          if (p.type) detail = `${p.type} — ${detail}`;
+
+          let doc = p.description ?? '';
+          if (p.default !== null && p.default !== undefined) doc += `\n\nDefault: \`${p.default}\``;
+          if (p.required) doc += '\n\n**(required)**';
+
+          return {
+            label: p.name,
+            detail,
+            documentation: doc,
+            kind: 'param' as const,
+            insertText: `${p.name}=`,
+            isSnippet: false,
+            filterText: p.name,
+            range: { startColumn, endColumn: column },
+          };
+        });
+    }
+  }
+
+  // --- Plugin name completions (filters, lookups, tests) ---
   const context = detectContext(fullText, lineNumber, column);
   const lines = fullText.split('\n');
   const currentLine = lines[lineNumber - 1] ?? '';
@@ -58,11 +131,13 @@ export function getCompletionItems(
 
   let kind = context.type;
   let typedPrefix = context.partialWord.toLowerCase();
+  let range = context.range;
 
   if (kind === 'none') {
     if (isInsideDelimiters(fullText, offset) && /^[\w.]+$/.test(fallbackFilterPrefix)) {
       kind = 'filter';
       typedPrefix = fallbackFilterPrefix;
+      range = { startColumn: column - fallbackFilterPrefix.length, endColumn: column };
     } else {
       return [];
     }
@@ -88,10 +163,10 @@ export function getCompletionItems(
         detail: plugin.name,
         documentation: buildDocumentation(plugin),
         kind,
-        insertText: isFilterWithParams ? `${shortName}($1)` : shortName,
+        insertText: isFilterWithParams ? `${plugin.name}($1)` : plugin.name,
         isSnippet: isFilterWithParams,
-        filterText: shortName,
-        range: context.range,
+        filterText: `${shortName} ${plugin.name}`,
+        range,
       };
     });
 }
@@ -100,7 +175,7 @@ export function createJinja2CompletionProvider(
   getPlugins: () => PluginEntry[]
 ): monaco.languages.CompletionItemProvider {
   return {
-    triggerCharacters: ['|', "'", '"', ' '],
+    triggerCharacters: ['|', "'", '"', ' ', '(', ','],
     provideCompletionItems(
       model: monaco.editor.ITextModel,
       position: monaco.Position
@@ -115,11 +190,17 @@ export function createJinja2CompletionProvider(
       const KIND_FUNCTION = 1;
       const KIND_REFERENCE = 21;
       const KIND_KEYWORD = 17;
+      const KIND_FIELD = 4;
       const INSERT_AS_SNIPPET = 4;
+      const kindMap = {
+        filter: KIND_FUNCTION,
+        lookup: KIND_REFERENCE,
+        test: KIND_KEYWORD,
+        param: KIND_FIELD,
+      };
       const suggestions: monaco.languages.CompletionItem[] = results.map((r) => ({
         label: r.label,
-        kind:
-          r.kind === 'filter' ? KIND_FUNCTION : r.kind === 'lookup' ? KIND_REFERENCE : KIND_KEYWORD,
+        kind: kindMap[r.kind],
         detail: r.detail,
         documentation: { value: r.documentation },
         insertText: r.insertText,

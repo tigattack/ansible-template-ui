@@ -280,8 +280,8 @@ export function detectContext(fullText: string, lineNumber: number, column: numb
   // --- {% filter ... %} block special case ---
   // When inside a {% %} block and the expression starts with 'filter ' (keyword)
   const trimmedExpr = exprPrefix.trimStart();
-  if (trimmedExpr.match(/^filter\s+(\w*)$/)) {
-    const m = trimmedExpr.match(/^filter\s+(\w*)$/);
+  if (trimmedExpr.match(/^filter\s+([\w.]*)$/)) {
+    const m = trimmedExpr.match(/^filter\s+([\w.]*)$/);
     const partial = m ? m[1] : '';
     const startCol = column - partial.length;
     return {
@@ -294,7 +294,8 @@ export function detectContext(fullText: string, lineNumber: number, column: numb
   // --- Test context: after `is ` or `is not ` ---
   // Look for pattern after the last pipe (if any), or from the beginning
   // of expression. Must not be inside a string.
-  const testMatch = exprPrefix.match(/\bis\s+not\s+(\w*)$/) ?? exprPrefix.match(/\bis\s+(\w*)$/);
+  const testMatch =
+    exprPrefix.match(/\bis\s+not\s+([\w.]*)$/) ?? exprPrefix.match(/\bis\s+([\w.]*)$/);
   if (testMatch) {
     const partial = testMatch[1];
     const startCol = column - partial.length;
@@ -335,7 +336,7 @@ export function detectContext(fullText: string, lineNumber: number, column: numb
 
   if (lastPipePos >= 0) {
     const afterPipe = exprPrefix.slice(lastPipePos + 1);
-    const wsMatch = afterPipe.match(/^(\s*)(\w*)$/);
+    const wsMatch = afterPipe.match(/^(\s*)([\w.]*)$/);
     if (wsMatch) {
       const partial = wsMatch[2];
       const startCol = column - partial.length;

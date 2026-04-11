@@ -132,6 +132,20 @@ describe('detectContext — filter', () => {
     expect(ctx.range.endColumn).toBe(col);
     expect(ctx.range.startColumn).toBe(col - 2);
   });
+
+  it('detects filter with FQCN partial (dots in prefix)', () => {
+    const [text, line, col] = cursorAt('{{ foo | ansible.builtin.a▶');
+    const ctx = detectContext(text, line, col);
+    expect(ctx.type).toBe('filter');
+    expect(ctx.partialWord).toBe('ansible.builtin.a');
+  });
+
+  it('range covers full FQCN prefix including dots', () => {
+    const [text, line, col] = cursorAt('{{ foo | ansible.builtin.a▶');
+    const ctx = detectContext(text, line, col);
+    expect(ctx.range.endColumn).toBe(col);
+    expect(ctx.range.startColumn).toBe(col - 'ansible.builtin.a'.length);
+  });
 });
 
 describe('detectContext — lookup', () => {
@@ -215,6 +229,14 @@ describe('detectContext — test', () => {
     const ctx = detectContext(text, line, col);
     expect(ctx.type).toBe('test');
     expect(ctx.partialWord).toBe('de');
+  });
+
+  it('detects test context with FQCN partial', () => {
+    const [text, line, col] = cursorAt('{{ foo is ansible.builtin.is▶');
+    const ctx = detectContext(text, line, col);
+    expect(ctx.type).toBe('test');
+    expect(ctx.partialWord).toBe('ansible.builtin.is');
+    expect(ctx.range.startColumn).toBe(col - 'ansible.builtin.is'.length);
   });
 });
 

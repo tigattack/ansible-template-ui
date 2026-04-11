@@ -97,7 +97,7 @@ describe('getCompletionItems', () => {
     const toYaml = results.find((r) => r.label === 'ansible.builtin.to_yaml');
     expect(toYaml).toBeDefined();
     expect(toYaml!.isSnippet).toBe(true);
-    expect(toYaml!.insertText).toBe('to_yaml($1)');
+    expect(toYaml!.insertText).toBe('ansible.builtin.to_yaml($1)');
   });
 
   it('to_json (no params) → isSnippet false and insertText is plain', () => {
@@ -106,7 +106,7 @@ describe('getCompletionItems', () => {
     const toJson = results.find((r) => r.label === 'ansible.builtin.to_json');
     expect(toJson).toBeDefined();
     expect(toJson!.isSnippet).toBe(false);
-    expect(toJson!.insertText).toBe('to_json');
+    expect(toJson!.insertText).toBe('ansible.builtin.to_json');
   });
 
   it('returns lookup completions after "{{ lookup(\'"', () => {
@@ -175,18 +175,18 @@ describe('getCompletionItems', () => {
     expect(toYaml!.documentation).toContain('`indent`');
   });
 
-  it('filterText is the short name', () => {
+  it('filterText includes both short name and FQCN', () => {
     const text = '{{ foo | ';
     const results = getCompletionItems(text, 1, text.length + 1, ALL_PLUGINS);
     const toYaml = results.find((r) => r.label === 'ansible.builtin.to_yaml');
-    expect(toYaml?.filterText).toBe('to_yaml');
+    expect(toYaml?.filterText).toBe('to_yaml ansible.builtin.to_yaml');
   });
 
-  it('insertText remains the short name even though label is FQCN', () => {
+  it('insertText uses the FQCN', () => {
     const text = '{{ foo | ';
     const results = getCompletionItems(text, 1, text.length + 1, ALL_PLUGINS);
     const toYaml = results.find((r) => r.label === 'ansible.builtin.to_yaml');
-    expect(toYaml?.insertText).toBe('to_yaml($1)');
+    expect(toYaml?.insertText).toBe('ansible.builtin.to_yaml($1)');
   });
 
   it('filters by FQCN prefix "ansible.builtin.to"', () => {
@@ -201,5 +201,90 @@ describe('getCompletionItems', () => {
     const text = '{{ foo | up';
     const results = getCompletionItems(text, 1, text.length + 1, ALL_PLUGINS);
     expect(results).toEqual([]);
+  });
+
+  it('range covers FQCN prefix so re-completing after partial delete replaces correctly', () => {
+    const text = '{{ foo | ansible.builtin.to_ya';
+    const col = text.length + 1;
+    const results = getCompletionItems(text, 1, col, ALL_PLUGINS);
+    expect(results.length).toBeGreaterThan(0);
+    const toYaml = results.find((r) => r.label === 'ansible.builtin.to_yaml');
+    expect(toYaml).toBeDefined();
+    expect(toYaml!.range.startColumn).toBe(col - 'ansible.builtin.to_ya'.length);
+    expect(toYaml!.range.endColumn).toBe(col);
+  });
+});
+
+describe('getCompletionItems — parameter completions', () => {
+  it('returns param completions inside to_yaml(', () => {
+    const text = '{{ foo | to_yaml(';
+    const results = getCompletionItems(text, 1, text.length + 1, ALL_PLUGINS);
+    const labels = results.map((r) => r.label);
+    expect(labels).toContain('indent');
+    expect(labels).toContain('allow_unicode');
+    expect(results.every((r) => r.kind === 'param')).toBe(true);
+  });
+
+  it('param insertText includes trailing =', () => {
+    const text = '{{ foo | to_yaml(';
+    const results = getCompletionItems(text, 1, text.length + 1, ALL_PLUGINS);
+    const indent = results.find((r) => r.label === 'indent');
+    expect(indent?.insertText).toBe('indent=');
+  });
+
+  it('filters params by typed prefix', () => {
+    const text = '{{ foo | to_yaml(ind';
+    const results = getCompletionItems(text, 1, text.length + 1, ALL_PLUGINS);
+    const labels = results.map((r) => r.label);
+    expect(labels).toContain('indent');
+    expect(labels).not.toContain('allow_unicode');
+  });
+
+  it('excludes already-used params', () => {
+    const text = '{{ foo | to_yaml(indent=4, ';
+    const results = getCompletionItems(text, 1, text.length + 1, ALL_PLUGINS);
+    const labels = results.map((r) => r.label);
+    expect(labels).not.toContain('indent');
+    expect(labels).toContain('allow_unicode');
+  });
+
+  it('returns [] for filter with no params (to_json)', () => {
+    const text = '{{ foo | to_json(';
+    const results = getCompletionItems(text, 1, text.length + 1, ALL_PLUGINS);
+    expect(results).toEqual([]);
+  });
+
+  it('returns [] outside delimiters', () => {
+    const text = 'to_yaml(';
+    const results = getCompletionItems(text, 1, text.length + 1, ALL_PLUGINS);
+    expect(results).toEqual([]);
+  });
+
+  it('param detail includes type and FQCN', () => {
+    const text = '{{ foo | to_yaml(';
+    const results = getCompletionItems(text, 1, text.length + 1, ALL_PLUGINS);
+    const indent = results.find((r) => r.label === 'indent');
+    expect(indent?.detail).toBe('int — ansible.builtin.to_yaml');
+  });
+
+  it('param documentation includes default value', () => {
+    const text = '{{ foo | to_yaml(';
+    const results = getCompletionItems(text, 1, text.length + 1, ALL_PLUGINS);
+    const indent = results.find((r) => r.label === 'indent');
+    expect(indent?.documentation).toContain('Default: `2`');
+  });
+
+  it('returns all params when all are already used', () => {
+    const text = '{{ foo | to_yaml(indent=4, allow_unicode=false, ';
+    const results = getCompletionItems(text, 1, text.length + 1, ALL_PLUGINS);
+    expect(results).toEqual([]);
+  });
+
+  it('matches filter by FQCN inside parens', () => {
+    const text = '{{ foo | ansible.builtin.to_yaml(';
+    const results = getCompletionItems(text, 1, text.length + 1, ALL_PLUGINS);
+    const labels = results.map((r) => r.label);
+    expect(labels).toContain('indent');
+    expect(labels).toContain('allow_unicode');
   });
 });
