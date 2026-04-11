@@ -1,3 +1,5 @@
+from typing import Literal
+
 import yaml
 from pydantic import BaseModel, field_validator
 
@@ -34,3 +36,31 @@ class RenderResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     error: str
+
+
+class PluginParam(BaseModel):
+    name: str
+    description: str
+    type: str | None = None
+    default: str | None = None
+    required: bool = False
+
+
+class PluginEntry(BaseModel):
+    name: str
+    namespace: str
+    type: str
+    short_description: str | None = None
+    description: str | None = None
+    params: list[PluginParam] = []
+    examples: str | None = None
+    source: Literal["builtin", "custom", "collection", "jinja2"]
+
+
+class PluginCategory(BaseModel):
+    type: str
+    plugins: list[PluginEntry]
+
+
+class PluginsResponse(BaseModel):
+    categories: list[PluginCategory]

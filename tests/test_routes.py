@@ -212,3 +212,80 @@ def test_route_validation_error_logs_event(route_client):
         and entry.get("error_count", 0) >= 1
         for entry in log_entries
     )
+
+
+def test_route_plugins_warmup_returns_503(route_client):
+    client, service, _, _ = route_client
+    service._plugin_introspection._introspection_ready.clear()
+    service._plugin_introspection._introspection_failed = False
+    resp = client.get("/plugins")
+    assert resp.status_code == 503
+    assert "error" in resp.json()
+
+
+def test_route_plugins_failed_returns_500(route_client):
+    client, service, _, _ = route_client
+    service._plugin_introspection._introspection_failed = True
+    resp = client.get("/plugins")
+    assert resp.status_code == 500
+    assert "detail" in resp.json()
+
+
+def test_route_plugins_success(route_client):
+    client, service, _, _ = route_client
+    from ansible_template_ui.models import PluginCategory, PluginEntry  # noqa: PLC0415
+
+    service._plugin_introspection._cached_plugins = [
+        PluginCategory(
+            type="filter",
+            plugins=[
+                PluginEntry(
+                    name="to_yaml",
+                    namespace="ansible.builtin",
+                    type="filter",
+                    short_description="Convert to YAML",
+                    source="builtin",
+                )
+            ],
+        )
+    ]
+    service._plugin_introspection._introspection_ready.set()
+    service._plugin_introspection._introspection_failed = False
+    resp = client.get("/plugins")
+    assert resp.status_code == 200
+    assert "categories" in resp.json()
+
+
+def test_route_plugins_response_shape(route_client):
+    client, service, _, _ = route_client
+    from ansible_template_ui.models import (  # noqa: PLC0415
+        PluginCategory,
+        PluginEntry,
+        PluginParam,
+    )
+
+    service._plugin_introspection._cached_plugins = [
+        PluginCategory(
+            type="filter",
+            plugins=[
+                PluginEntry(
+                    name="to_yaml",
+                    namespace="ansible.builtin",
+                    type="filter",
+                    source="builtin",
+                    params=[
+                        PluginParam(
+                            name="indent", description="Indentation spaces", type="int"
+                        )
+                    ],
+                )
+            ],
+        )
+    ]
+    service._plugin_introspection._introspection_ready.set()
+    service._plugin_introspection._introspection_failed = False
+    resp = client.get("/plugins")
+    data = resp.json()
+    assert data["categories"][0]["type"] == "filter"
+    assert data["categories"][0]["plugins"][0]["name"] == "to_yaml"
+    assert data["categories"][0]["plugins"][0]["source"] == "builtin"

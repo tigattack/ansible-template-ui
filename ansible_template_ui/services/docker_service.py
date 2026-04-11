@@ -14,10 +14,11 @@ from ansible_template_ui.exceptions import (
     RenderExecutionError,
     RenderTimeoutError,
 )
-from ansible_template_ui.models import RenderRequest, RenderResponse
+from ansible_template_ui.models import PluginsResponse, RenderRequest, RenderResponse
 from ansible_template_ui.services.galaxy_warmup import GalaxyWarmup
 from ansible_template_ui.services.image_cache import ImageCache
 from ansible_template_ui.services.mount_resolver import MountResolver
+from ansible_template_ui.services.plugin_introspection import PluginIntrospectionService
 from docker import utils as docker_utils
 
 logger = structlog.get_logger(__name__)
@@ -68,6 +69,14 @@ class DockerService:
             docker_image=docker_image,
             container_timeout=container_timeout,
         )
+        self._plugin_introspection = PluginIntrospectionService(
+            docker_image=docker_image,
+            container_timeout=container_timeout,
+            filter_plugin_path=filter_plugin_path,
+            lookup_plugin_path=lookup_plugin_path,
+            test_plugin_path=test_plugin_path,
+            galaxy_volume_name=None,
+        )
 
         self._docker_client = docker_client
         self._docker_lock = threading.Lock()
@@ -94,6 +103,23 @@ class DockerService:
 
     def is_warmup_failed(self) -> bool:
         return self._galaxy_warmup.is_failed()
+
+    def is_plugin_docs_ready(self) -> bool:
+        return self._plugin_introspection.is_ready()
+
+    def is_plugin_docs_failed(self) -> bool:
+        return self._plugin_introspection.is_failed()
+
+    def get_plugin_docs(self) -> PluginsResponse:
+        categories = self._plugin_introspection.get_plugins() or []
+        return PluginsResponse(categories=categories)
+
+    def introspect_plugins(self) -> None:
+        if self.galaxy_collections:
+            while not self.is_warmup_ready() and not self.is_warmup_failed():
+                time.sleep(1)
+        self._plugin_introspection.galaxy_volume_name = self.warmup_volume_name
+        self._plugin_introspection.introspect(self.get_docker_client())
 
     def get_docker_client(self) -> docker.DockerClient:
         if self._docker_client is None:

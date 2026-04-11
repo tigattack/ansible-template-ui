@@ -12,3 +12,7 @@ class RenderExecutionError(Exception):
 
 class DockerImageError(Exception):
     pass
+
+
+class PluginIntrospectionInProgressError(Exception):
+    pass

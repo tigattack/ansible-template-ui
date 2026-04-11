@@ -16,7 +16,8 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/render': process.env.VITE_PROXY_TARGET || 'http://localhost:8080'
+      '/render': process.env.VITE_PROXY_TARGET || 'http://localhost:8080',
+      '/plugins': process.env.VITE_PROXY_TARGET || 'http://localhost:8080',
     }
   }
 })

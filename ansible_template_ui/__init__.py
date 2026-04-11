@@ -15,6 +15,7 @@ from ansible_template_ui.dependencies import get_docker_service
 from ansible_template_ui.exceptions import (
     DockerImageError,
     GalaxyWarmupInProgressError,
+    PluginIntrospectionInProgressError,
     RenderExecutionError,
     RenderTimeoutError,
 )
@@ -29,6 +30,7 @@ async def lifespan(app: FastAPI):
     service = get_docker_service()
     if service.galaxy_collections:
         threading.Thread(target=service.warmup_galaxy_cache, daemon=True).start()
+    threading.Thread(target=service.introspect_plugins, daemon=True).start()
     yield
 
 
@@ -40,6 +42,16 @@ app.include_router(router)
 
 @app.exception_handler(GalaxyWarmupInProgressError)
 async def galaxy_warmup_handler(request: Request, exc: GalaxyWarmupInProgressError):
+    return JSONResponse(
+        content=ErrorResponse(error=str(exc)).model_dump(),
+        status_code=503,
+    )
+
+
+@app.exception_handler(PluginIntrospectionInProgressError)
+async def plugin_introspection_handler(
+    request: Request, exc: PluginIntrospectionInProgressError
+):
     return JSONResponse(
         content=ErrorResponse(error=str(exc)).model_dump(),
         status_code=503,
