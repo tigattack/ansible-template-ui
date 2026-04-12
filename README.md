@@ -4,11 +4,15 @@ Web UI for testing Ansible/Jinja2 templates. Paste a template and variables, get
 
 **Features:**
 
-- Monaco editor panes with syntax highlighting
+- Monaco editor panes with syntax highlighting and completion for plugin names and arguments
+- Built-in documentation for all Ansible and Jinja2 plugins
 - Use your own custom Ansible plugins (filter, lookup, test)
 - Install Ansible plugins from collections on Ansible Galaxy
 
-![Screenshot](.github/web.png)
+| Template example                                 | Plugin list & documentation                      |
+| ------------------------------------------------ | ------------------------------------------------ |
+| ![Web template screenshot](.github/web_main.png) | ![Plugin list demo](.github/web_plugin_docs.gif) |
+
 
 > [!WARNING]
 > 🤖 **Vibe coded.**
@@ -43,20 +47,20 @@ docker run -d \
 
 All configuration is via environment variables.
 
-| Variable                     | Default                                        | Description                                                                   |
-| ---------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------- |
-| `DOCKER_IMAGE`               | `ghcr.io/tigattack/ansible-template-renderer` | Docker image used for the render container                                    |
-| `HOST`                       | `127.0.0.1`                                    | Bind address (dev server only)                                                |
-| `PORT`                       | `8080`                                         | Listen port (dev server only)                                                 |
-| `DEBUG`                      | `false`                                        | Enable hot reload (dev server only)                                          |
-| `LOG_FORMAT`                 | _(auto)_                                       | Log output format: `pretty`, `json`, or auto-detect by TTY                    |
-| `CONTAINER_TIMEOUT`          | `180`                                          | Max seconds to wait for a render container before timing out                  |
-| `IMAGE_CACHE_TTL`            | `300`                                          | Seconds between re-pulling the render image. Set to `0` to pull every request |
-| `CONTAINER_MEM_LIMIT`        | `96m`                                          | Max memory for render container                                               |
-| `FILTER_PLUGIN_PATH`         | `/plugins/filter`                              | Container path to custom Jinja2 filter plugins (see [Custom Plugins](#custom-plugins)) |
-| `LOOKUP_PLUGIN_PATH`         | `/plugins/lookup`                              | Container path to custom lookup plugins (see [Custom Plugins](#custom-plugins))    |
-| `TEST_PLUGIN_PATH`           | `/plugins/test`                                | Container path to custom Jinja2 test plugins (see [Custom Plugins](#custom-plugins)) |
-| `ANSIBLE_GALAXY_COLLECTIONS` | _(empty)_                                      | Space-separated Galaxy collections (cached in Docker volume)                  |
+| Variable                     | Default                                       | Description                                                                            |
+| ---------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `DOCKER_IMAGE`               | `ghcr.io/tigattack/ansible-template-renderer` | Docker image used for the render container                                             |
+| `HOST`                       | `127.0.0.1`                                   | Bind address (dev server only)                                                         |
+| `PORT`                       | `8080`                                        | Listen port (dev server only)                                                          |
+| `DEBUG`                      | `false`                                       | Enable hot reload (dev server only)                                                    |
+| `LOG_FORMAT`                 | _(auto)_                                      | Log output format: `pretty`, `json`, or auto-detect by TTY                             |
+| `CONTAINER_TIMEOUT`          | `180`                                         | Max seconds to wait for a render container before timing out                           |
+| `IMAGE_CACHE_TTL`            | `300`                                         | Seconds between re-pulling the render image. Set to `0` to pull every request          |
+| `CONTAINER_MEM_LIMIT`        | `96m`                                         | Max memory for render container                                                        |
+| `FILTER_PLUGIN_PATH`         | `/plugins/filter`                             | Container path to custom Jinja2 filter plugins (see [Custom Plugins](#custom-plugins)) |
+| `LOOKUP_PLUGIN_PATH`         | `/plugins/lookup`                             | Container path to custom lookup plugins (see [Custom Plugins](#custom-plugins))        |
+| `TEST_PLUGIN_PATH`           | `/plugins/test`                               | Container path to custom Jinja2 test plugins (see [Custom Plugins](#custom-plugins))   |
+| `ANSIBLE_GALAXY_COLLECTIONS` | _(empty)_                                     | Space-separated Galaxy collections (cached in Docker volume)                           |
 
 ## Custom Plugins
 
