@@ -98,7 +98,6 @@ ENV/
 
 # local
 .ansible
-.DS_Store
 
 # frontend build/install outputs
 node_modules/
@@ -111,3 +110,8 @@ test-results/
 playwright-report/
 blob-report/
 playwright/.cache/
+
+# stuff
+.DS_Store
+compose.custom.yml
+NOTES.md
