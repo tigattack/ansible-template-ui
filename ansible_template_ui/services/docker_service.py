@@ -301,6 +301,5 @@ class DockerService:
 
         if play is None:
             raise RenderExecutionError("Unexpected Ansible output structure")
-        b64_content: str = play["tasks"][1]["hosts"]["localhost"]["content"]
-        content = base64.b64decode(b64_content).decode("utf-8")
+        content: str = play["tasks"][0]["hosts"]["localhost"]["msg"]
         return RenderResponse(content=content)

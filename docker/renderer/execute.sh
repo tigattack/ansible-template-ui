@@ -7,7 +7,6 @@ export ANSIBLE_RETRY_FILES_ENABLED=0
 
 template_file=$(mktemp)
 variables_file=$(mktemp)
-output_file=$(mktemp)
 
 echo "$TEMPLATE" | base64 -d > "$template_file"
 echo "$VARIABLES" | base64 -d > "$variables_file"
@@ -31,5 +30,4 @@ fi
 timeout -s KILL 5 ansible-playbook \
   -e "@$variables_file" \
   -e "template_src=$template_file" \
-  -e "template_dest=$output_file" \
   playbook.yml

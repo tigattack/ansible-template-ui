@@ -21,13 +21,11 @@ def client():
 
 
 def make_success_output(content="bar"):
-    b64_content = base64.b64encode(content.encode()).decode()
     response = {
         "plays": [
             {
                 "tasks": [
-                    {"hosts": {"localhost": {}}},
-                    {"hosts": {"localhost": {"content": b64_content}}},
+                    {"hosts": {"localhost": {"msg": content}}},
                 ],
             },
         ],

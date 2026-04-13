@@ -3,12 +3,6 @@
   hosts: localhost
   gather_facts: false
   tasks:
-    - name: Template
-      ansible.builtin.template:
-        src: "{{ template_src }}"
-        dest: "{{ template_dest }}"
-        mode: '0600'
-
-    - name: Slurp
-      ansible.builtin.slurp:
-        path: "{{ template_dest }}"
+    - name: Render template
+      ansible.builtin.debug:
+        msg: "{{ lookup('template', template_src) }}"
