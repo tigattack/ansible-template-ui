@@ -19,7 +19,7 @@ dependencies = [
     "fastapi~=0.136.0",
     "pydantic-settings~=2.13.1",
     "PyYAML~=6.0.3",
-    "requests~=2.33.1",
+    "requests~=2.34.2",
     "structlog~=25.5.0",
     "uvicorn[standard]~=0.44.0",
 ]
