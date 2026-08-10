@@ -29,7 +29,7 @@ Homepage = "https://github.com/tigattack/ansible-template-ui"
 
 [dependency-groups]
 dev = [
-    "ansible-core~=2.20.4",
+    "ansible-core~=2.21.3",
     "ansible-lint~=26.4",
     "httpx~=0.28.1",
     "lefthook~=2.1.4",
