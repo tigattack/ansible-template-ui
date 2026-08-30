@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "antsibull-docs": "^1.1.4",
-    "monaco-editor": "^0.55.0",
+    "monaco-editor": "^0.56.0",
     "monaco-yaml": "^5.1.1"
   },
   "devDependencies": {
