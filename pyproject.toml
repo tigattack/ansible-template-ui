@@ -16,7 +16,7 @@ keywords = ["ansible", "jinja", "jinja2", "template", "ansible-template-ui"]
 requires-python = ">=3.14"
 dependencies = [
     "docker~=7.1.0",
-    "fastapi~=0.136.0",
+    "fastapi~=0.141.1",
     "pydantic-settings~=2.13.1",
     "PyYAML~=6.0.3",
     "requests~=2.33.1",
